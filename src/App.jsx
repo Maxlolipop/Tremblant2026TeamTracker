@@ -67,20 +67,22 @@ export default function App() {
 
       <footer style={{ ...monoLabel, display: 'flex', gap: 12, alignItems: 'center' }}>
         <span>tremblant 2026</span>
-        <button
-          onClick={() => {
-            if (confirm('Reset all teams and live games to the seed data?')) tracker.reset();
-          }}
-          style={{
-            border: 'none',
-            background: 'transparent',
-            ...monoLabel,
-            cursor: 'pointer',
-            marginLeft: 'auto',
-          }}
-        >
-          ↺ reset data
-        </button>
+        {(!tracker.shared || tracker.session) && (
+          <button
+            onClick={() => {
+              if (confirm('Reset all teams and live games to the seed data?')) tracker.reset();
+            }}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              ...monoLabel,
+              cursor: 'pointer',
+              marginLeft: 'auto',
+            }}
+          >
+            ↺ reset data
+          </button>
+        )}
       </footer>
     </div>
   );

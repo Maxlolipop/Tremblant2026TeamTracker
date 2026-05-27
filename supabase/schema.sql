@@ -30,19 +30,40 @@ create table if not exists public.shots (
 create index if not exists shots_team_id_idx on public.shots (team_id);
 
 -- ── access ──────────────────────────────────────────────────────────────────
--- RLS is on, with wide-open policies for the anon key. Tighten later if you
--- ever need to (e.g. require auth), but for a weekend tournament tool this is
--- the "anyone with the URL can use it" behaviour we want.
+-- RLS is on. Two different trust levels:
+--
+--   shots  → anyone with the link can read AND write. Marking teams is the
+--            high-frequency, low-risk action every photographer does, so it
+--            stays open (no login needed on a busy rink).
+--
+--   meta   → anyone can READ the roster, but only a signed-in user may CHANGE
+--            it. Importing a file or loading a schedule REPLACES the whole
+--            roster (and wipes shots), so it's destructive — we gate it behind
+--            Supabase Auth. Enforced here in the database, so it can't be
+--            bypassed from the browser devtools/console.
+--
+-- To create the admin login: Supabase dashboard → Authentication → Users →
+-- "Add user" (email + password). Hand those credentials to whoever runs the
+-- import. (Optionally disable public sign-ups under Authentication → Providers
+-- so only users you add can ever log in.)
 alter table public.meta  enable row level security;
 alter table public.shots enable row level security;
 
-drop policy if exists "anon all on meta"  on public.meta;
-drop policy if exists "anon all on shots" on public.shots;
+drop policy if exists "anon all on meta"   on public.meta;
+drop policy if exists "anon all on shots"  on public.shots;
+drop policy if exists "read meta"          on public.meta;
+drop policy if exists "write meta authed"  on public.meta;
+drop policy if exists "all on shots"       on public.shots;
 
-create policy "anon all on meta"  on public.meta  for all
-  to anon using (true) with check (true);
-create policy "anon all on shots" on public.shots for all
-  to anon using (true) with check (true);
+-- meta: public read, authenticated write.
+create policy "read meta" on public.meta for select
+  to anon, authenticated using (true);
+create policy "write meta authed" on public.meta for all
+  to authenticated using (true) with check (true);
+
+-- shots: open to everyone (with or without a login).
+create policy "all on shots" on public.shots for all
+  to anon, authenticated using (true) with check (true);
 
 -- ── realtime ──────────────────────────────────────────────────────────────--
 -- Broadcast inserts/updates/deletes so the app can live-update without polling.

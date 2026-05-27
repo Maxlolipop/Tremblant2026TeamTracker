@@ -91,6 +91,116 @@ function ScheduleLoader({ tracker }) {
   );
 }
 
+// Import replaces the whole roster and wipes the previous tournament's shots,
+// so in shared mode it's locked behind a Supabase login (enforced by RLS — see
+// supabase/schema.sql). Until you sign in, the import controls aren't shown.
+function LoginGate({ tracker }) {
+  const { signIn } = tracker;
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await signIn(email, password);
+    } catch (err) {
+      setError(err.message || 'Could not sign in.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const field = {
+    border: '1.5px solid #1c1a17',
+    borderRadius: 6,
+    padding: '8px 10px',
+    background: COLORS.paper,
+    fontFamily: fonts.mono,
+    fontSize: 12,
+    color: COLORS.ink,
+  };
+
+  return (
+    <SketchBox style={{ padding: 14, background: '#fff' }}>
+      <div style={{ fontFamily: fonts.hand, fontSize: 24, marginBottom: 6 }}>Admin sign-in</div>
+      <div style={{ ...monoLabel, textTransform: 'none', marginBottom: 10 }}>
+        Importing rebuilds the roster for everyone — sign in to make changes.
+        Marking teams on the Live and Teams tabs needs no login.
+      </div>
+      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 320 }}>
+        <input
+          type="email"
+          autoComplete="username"
+          placeholder="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={field}
+        />
+        <input
+          type="password"
+          autoComplete="current-password"
+          placeholder="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={field}
+        />
+        <button
+          type="submit"
+          disabled={busy || !email.trim() || !password}
+          style={{
+            padding: '8px 18px',
+            border: '1.5px solid #1c1a17',
+            background: busy || !email.trim() || !password ? 'rgba(0,0,0,0.15)' : COLORS.shot,
+            color: COLORS.paper,
+            borderRadius: 6,
+            fontFamily: fonts.hand,
+            fontSize: 20,
+            cursor: busy || !email.trim() || !password ? 'default' : 'pointer',
+          }}
+        >
+          {busy ? 'signing in…' : 'sign in'}
+        </button>
+      </form>
+      {error && (
+        <div style={{ ...monoLabel, color: COLORS.unshot, textTransform: 'none', marginTop: 8 }}>
+          ⚠ {error}
+        </div>
+      )}
+    </SketchBox>
+  );
+}
+
+// Small "signed in as … · sign out" bar shown above the import controls.
+function AdminBar({ tracker }) {
+  const email = tracker.session?.user?.email;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, ...monoLabel, textTransform: 'none' }}>
+      <Chip status="shot">admin</Chip>
+      <span>signed in{email ? ` as ${email}` : ''}</span>
+      <button
+        onClick={tracker.signOut}
+        style={{
+          marginLeft: 'auto',
+          border: '1.5px solid #1c1a17',
+          background: 'transparent',
+          borderRadius: 6,
+          padding: '4px 12px',
+          fontFamily: fonts.hand,
+          fontSize: 16,
+          cursor: 'pointer',
+          color: COLORS.ink,
+        }}
+      >
+        sign out
+      </button>
+    </div>
+  );
+}
+
 const FIELDS = [
   { value: 'name', label: 'team name', required: true },
   { value: 'division', label: 'division', required: false },
@@ -187,9 +297,22 @@ export default function ImportPage({ tracker }) {
     setMapping((m) => m.map((f, i) => (i === idx ? value : f)));
   }
 
+  // In shared mode, importing is admin-only — show the login gate until signed
+  // in. In local (single-device) mode there's no backend to protect.
+  if (tracker.shared && !tracker.session) {
+    return (
+      <div style={paperStyle}>
+        <PageHeader title="Import tournament" subtitle="sign in to import" />
+        <LoginGate tracker={tracker} />
+      </div>
+    );
+  }
+
   return (
     <div style={paperStyle}>
       <PageHeader title="Import tournament" subtitle="live schedule or spreadsheet" />
+
+      {tracker.shared && <AdminBar tracker={tracker} />}
 
       <ScheduleLoader tracker={tracker} />
 

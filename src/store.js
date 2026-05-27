@@ -82,6 +82,12 @@ export function useTracker() {
   const [state, setState] = useState(isShared ? seedState : loadLocal);
   const [online, setOnline] = useState(!isShared); // local mode is always "ready"
   const [photographer, setPhotographerState] = useState(loadPhotographer);
+  // Admin session (shared mode only). Roster writes — import, schedule load,
+  // reset — require a logged-in user; the database enforces this via RLS, this
+  // is just so the UI can gate the controls and skip doomed write attempts.
+  const [session, setSession] = useState(null);
+  const sessionRef = useRef(null);
+  sessionRef.current = session;
   const undoStack = useRef([]);
   const [canUndo, setCanUndo] = useState(false);
   // `by` must be readable inside async server callbacks without going stale.
@@ -97,6 +103,24 @@ export function useTracker() {
       // storage full / disabled — non-fatal
     }
   }, [state]);
+
+  // ── admin auth (shared mode) ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!isShared) return;
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const signIn = useCallback(async (email, password) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    if (error) throw new Error(error.message);
+  }, []);
+
+  const signOut = useCallback(() => supabase.auth.signOut(), []);
 
   const pushUndo = useCallback((entry) => {
     undoStack.current.push(entry);
@@ -139,7 +163,10 @@ export function useTracker() {
       // something to look at before a schedule/file is imported.
       const { data: meta } = await supabase.from('meta').select('id').eq('id', META_ID).maybeSingle();
       if (cancelled) return;
-      if (!meta) {
+      // Plant the seed roster only if we're signed in — anon clients can read
+      // meta but not write it (RLS), and refetch() falls back to the in-memory
+      // seed for them anyway, so the app still has something to show.
+      if (!meta && sessionRef.current) {
         await supabase.from('meta').insert({ id: META_ID, data: rosterFromState(seedState()) });
       }
       if (!cancelled) await refetch();
@@ -162,6 +189,10 @@ export function useTracker() {
   // LivePage's 60s schedule auto-refresh would write identical data on every
   // open client and trigger an endless realtime echo across phones.
   const writeRoster = useCallback(async (nextState) => {
+    // Roster changes are admin-only. Bail before touching the network for anon
+    // clients (e.g. LivePage's background schedule auto-refresh) — the DB would
+    // reject the write anyway.
+    if (!sessionRef.current) return;
     const data = rosterFromState(nextState);
     const { data: cur } = await supabase.from('meta').select('data').eq('id', META_ID).maybeSingle();
     if (cur && JSON.stringify(cur.data) === JSON.stringify(data)) return;
@@ -311,6 +342,7 @@ export function useTracker() {
         liveGames: liveGames.length ? liveGames : SEED_LIVE_GAMES,
       };
       if (isShared) {
+        if (!sessionRef.current) return; // admin-only; UI gates this too
         setState(next);
         (async () => {
           await supabase.from('shots').delete().gt('created_at', '1900-01-01');
@@ -360,6 +392,7 @@ export function useTracker() {
   const reset = useCallback(() => {
     const seed = seedState();
     if (isShared) {
+      if (!sessionRef.current) return; // admin-only; UI gates this too
       setState(seed);
       (async () => {
         await supabase.from('shots').delete().gt('created_at', '1900-01-01');
@@ -403,5 +436,9 @@ export function useTracker() {
     // surfaced for the header connection indicator
     shared: isShared,
     online,
+    // admin auth (shared mode) — gates the import/reset controls
+    session,
+    signIn,
+    signOut,
   };
 }

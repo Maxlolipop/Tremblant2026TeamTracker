@@ -39,6 +39,11 @@ next to the title shows the current mode: `live · synced` vs `this device`.
 3. Open **Settings → API** and copy two values:
    - **Project URL**
    - **Project API key** → the **`anon` / public** one (safe to ship publicly).
+4. Create the admin login that's allowed to import: **Authentication → Users →
+   Add user** (email + password). Anyone can mark teams without a login, but
+   **Import** (which rebuilds the roster for everyone) requires signing in with
+   this account. Optionally turn off public sign-ups under **Authentication →
+   Providers** so only users you add can ever log in.
 
 ### 2. Deploy to Vercel (once, ~3 min)
 
