@@ -106,7 +106,11 @@ function ScheduleLive({ tracker }) {
           g.venue.toLowerCase().includes(q)
         );
       })
-      .sort((a, b) => (a.time || '').localeCompare(b.time || '') || a.venue.localeCompare(b.venue));
+      .sort(
+        (a, b) =>
+          (a.time || '').localeCompare(b.time || '') ||
+          a.venue.localeCompare(b.venue, undefined, { numeric: true }),
+      );
   }, [games, day, liveOnly, q]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetched = schedule?.fetchedAt
