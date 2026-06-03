@@ -121,7 +121,7 @@ function ScheduleLive({ tracker }) {
     <div style={paperStyle}>
       <PageHeader
         title="Live now"
-        subtitle="nbhpa schedule"
+        subtitle="live schedule"
         right={
           <div style={{ ...monoLabel, textAlign: 'right' }}>
             <div>{games.length} games · {days.length} days</div>

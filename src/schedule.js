@@ -24,6 +24,7 @@ function readFormDefaults(pageHtml, pageUrl) {
   return {
     seasonId: grab('season_id'),
     leagueId: grab('league_id') || url.searchParams.get('league_id') || '',
+    lang: url.searchParams.get('lang') || 'fr',
   };
 }
 
@@ -42,8 +43,8 @@ export function parseGames(html) {
     // and in document order: first listed is the visitor, second the home.
     const teams = [];
     const seen = new Set();
-    row.querySelectorAll('a[href*="/equipes/"]').forEach((a) => {
-      const id = a.getAttribute('href').match(/\/equipes\/(\d+)/)?.[1];
+    row.querySelectorAll('a[href*="/equipes/"], a[href*="/teams/"]').forEach((a) => {
+      const id = a.getAttribute('href').match(/\/(?:equipes|teams)\/(\d+)/)?.[1];
       const name = collapse(a.textContent);
       if (!id || !name || seen.has(id)) return;
       seen.add(id);
@@ -104,7 +105,7 @@ export async function fetchSchedule(pageUrl) {
   const pageRes = await fetch(pageUrl, { credentials: 'omit' });
   if (!pageRes.ok) throw new Error(`schedule page returned ${pageRes.status}`);
   const pageHtml = await pageRes.text();
-  const { seasonId, leagueId } = readFormDefaults(pageHtml, pageUrl);
+  const { seasonId, leagueId, lang } = readFormDefaults(pageHtml, pageUrl);
   if (!leagueId) throw new Error('could not find a league_id on that page');
 
   const includeUrl = new URL('site_schedule_include.php', pageUrl).href;
@@ -118,7 +119,7 @@ export async function fetchSchedule(pageUrl) {
     venue_id: '',
     datetime: today,
     league_id: leagueId,
-    lang: 'fr',
+    lang,
   });
 
   const res = await fetch(includeUrl, {

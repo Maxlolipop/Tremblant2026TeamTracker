@@ -3,6 +3,7 @@ import { PageHeader, SketchBox, Chip, paperStyle } from '../kit.jsx';
 import { COLORS, fonts, monoLabel } from '../theme.js';
 
 const DEFAULT_SCHEDULE_URL =
+  import.meta.env.VITE_DEFAULT_SCHEDULE_URL ||
   'https://admin.nbhpa.com/sites/site_schedule.php?league_id=54&lang=fr';
 
 // Pull the live NBHPA schedule straight off the public page. No file needed —
@@ -33,7 +34,7 @@ function ScheduleLoader({ tracker }) {
     <SketchBox style={{ padding: 14, background: '#fff' }}>
       <div style={{ fontFamily: fonts.hand, fontSize: 24, marginBottom: 6 }}>Load live schedule</div>
       <div style={{ ...monoLabel, textTransform: 'none', marginBottom: 8 }}>
-        Paste the NBHPA schedule link — every game, team, time and rink is pulled in automatically.
+        Paste the schedule link — every game, team, time and rink is pulled in automatically.
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <input

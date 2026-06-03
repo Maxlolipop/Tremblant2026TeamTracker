@@ -5,6 +5,8 @@ import TeamsPage from './pages/TeamsPage.jsx';
 import ImportPage from './pages/ImportPage.jsx';
 import { COLORS, fonts, monoLabel } from './theme.js';
 
+const APP_TITLE = import.meta.env.VITE_APP_TITLE || 'tremblant 2026';
+
 const TABS = [
   { id: 'live', label: 'Live' },
   { id: 'teams', label: 'Teams' },
@@ -66,7 +68,7 @@ export default function App() {
       {page === 'input' && <ImportPage tracker={tracker} />}
 
       <footer style={{ ...monoLabel, display: 'flex', gap: 12, alignItems: 'center' }}>
-        <span>tremblant 2026</span>
+        <span>{APP_TITLE}</span>
         {(!tracker.shared || tracker.session) && (
           <button
             onClick={() => {
